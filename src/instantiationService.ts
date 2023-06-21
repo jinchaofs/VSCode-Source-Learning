@@ -10,14 +10,14 @@ import { toDisposable } from "./common/lifecycle";
 const _enableAllTracing = false;
 
 class CyclicDependencyError extends Error {
-    constructor(graph: Graph<any>) {
-        super("cyclic dependency between services");
-        this.message = graph.findCycleSlow() ?? `Unable to detect cycle, dumping graph: \n${graph.toString()}`
-    }
+	constructor(graph: Graph<any>) {
+		super("cyclic dependency between services");
+		this.message = graph.findCycleSlow() ?? `Unable to detect cycle, dumping graph: \n${graph.toString()}`
+	}
 }
 
 export class InstantiationService implements IInstantiationService {
-    
+
 	declare readonly _serviceBrand: undefined;
 
 	readonly _globalGraph?: Graph<string>;
@@ -69,6 +69,10 @@ export class InstantiationService implements IInstantiationService {
 		}
 	}
 
+	/**
+	 * 创建对象实例
+	 * @param descriptor 
+	 */
 	createInstance<T>(descriptor: SyncDescriptor0<T>): T;
 	createInstance<Ctor extends new (...args: any[]) => any, R extends InstanceType<Ctor>>(ctor: Ctor, ...args: GetLeadingNonServiceArgs<ConstructorParameters<Ctor>>): R;
 	createInstance(ctorOrDescriptor: any | SyncDescriptor<any>, ...rest: any[]): any {
@@ -349,7 +353,7 @@ export class InstantiationService implements IInstantiationService {
 		if (this._strict) {
 			throw new Error(msg);
 		}
-    }
+	}
 
 
 }
