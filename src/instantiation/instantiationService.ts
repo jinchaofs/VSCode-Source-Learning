@@ -1,11 +1,11 @@
-import { IdleValue } from "./common/async";
+import { IdleValue } from "../common/async";
 import { SyncDescriptor, SyncDescriptor0 } from "./descriptor";
-import { Graph } from "./common/graph";
+import { Graph } from "../common/graph";
 import { GetLeadingNonServiceArgs, IInstantiationService, ServiceIdentifier, ServicesAccessor, _util } from "./instantiation";
-import { LinkedList } from "./common/linkedlist";
+import { LinkedList } from "../common/linkedlist";
 import { ServiceCollection } from "./serviceCollection";
-import { Event } from "./common/event";
-import { toDisposable } from "./common/lifecycle";
+import { Event } from "../common/event";
+import { toDisposable } from "../common/lifecycle";
 
 const _enableAllTracing = false;
 

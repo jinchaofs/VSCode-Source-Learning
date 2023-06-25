@@ -1,9 +1,9 @@
-import { Graph } from "../common/graph";
+import { Graph } from "../../common/graph";
 
 describe("Graph", () => {
     let graph: Graph<string>;
     beforeAll(() => {
-        graph = new Graph<string>(s => s); 
+        graph = new Graph<string>(s => s);
     });
     afterEach(() => {
         graph.clear();
@@ -12,7 +12,7 @@ describe("Graph", () => {
     test("is possible to lookup nodes that don't exist", () => {
         expect(graph.lookup("ddd")).toStrictEqual(undefined);
     });
-    
+
     // 节点不存在时插入
     test("inserts nodes when not there yet", () => {
         expect(graph.lookup('ddd')).toStrictEqual(undefined);
@@ -47,10 +47,10 @@ describe("Graph", () => {
         graph.insertEdge('1', '2');
         graph.insertEdge('1', '3');
         graph.insertEdge('3', '4');
-        
+
         const roots = graph.roots();
         expect(roots.length).toStrictEqual(2);
         expect(['2', '4'].every(n => roots.some(node => node.data === n))).toBeTruthy()
     })
-    
+
 })
