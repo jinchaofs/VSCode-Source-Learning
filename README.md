@@ -1,4 +1,4 @@
-# InstantiationService 实例初始化服务
+# VSCode - InstantiationService 
 
 阅读VSCode源码是学习和理解该开源项目的一种方式。
 
@@ -8,9 +8,17 @@
 
 对于插件开发者来说，它还提供了强大的扩展能力和API支持。
 
-本文将通过阅读`InstantiationService`的源码，解析其实现原理，以便为后续阅读VSCode源码做好铺垫。
+本文将通过阅读`InstantiationService`的源码，解析其实现原理，这对我们后续深入理解VSCode的其他方面有很大帮助。
 
-## 依赖注入
+### 关于源码仓库
+
+`VSCode` 源码仓库代码量巨大，有时候会对我们阅读源码产生一些干扰，不知道怎么下手。
+
+所以，为了方便阅读代码和调试，我把`InstantiationService`的实现部分的代码单独拉出来放到了仓库里: [VSCode-Source-Leaning](https://github.com/jinchaofs/VSCode-Source-Learning)
+
+关于调试，你可以在`vscode`中直接打断点进行调试。
+
+## 依赖注入回顾
 
 在开始分析`InstantiationService`之前，让我们回顾一下依赖注入设计模式的概念和优势。
 
@@ -67,11 +75,13 @@ userService.createUser("Tester");
 
 通过依赖注入，我们实现了类之间的解耦，并提高了代码的可测试性和可扩展性。特别是在大型应用程序中，依赖注入可以更轻松地管理和替换依赖关系。
 
-## `Instantiation`中的装饰器
+## 服务标识符（装饰器）
 
-`InstantiationService`中依赖的装饰器的关键源码位于`instantiation/instantiation.ts`文件中。
+`InstantiationService` 在实例化对象的过程中，进行依赖注入，有一个很重要的角色，就是 **`服务标识符`**。
 
-首先，我们来看一下`createDecorator`函数的实现，该函数用于创建装饰器，作为服务（类）的唯一标识符。
+`服务标识符`本质是一个装饰器，它通过 `createDecorator` 函数调用产生。
+
+源代码文件位置：`src/instantiation.ts`
 
 ```typescript
 export interface ServiceIdentifier<T> {
@@ -115,68 +125,45 @@ export function createDecorator<T>(serviceId: string): ServiceIdentifier<T> {
 }
 ```
 
-上述代码中，我们主要关注以下几个部分：
+现在我们结合源码分析一下： 
 
-1. `createDecorator`函数用于创建装饰器，返回一个服务标识符的函数（装饰器）。
+**`服务标识符` 是什么？**
 
-2. 装饰器展开：装饰器函数（服务标识符函数）被调用时，会将`{ id, index }`存储在`target[_util.DI_DEPENDENCIES]`列表中。
+`服务标识符` 由 `createDecorator` 函数创建，即`createDecorator`函数内部的 `id` 函数，它同时也是一个`装饰器`。
 
-   - `id`是装饰器函数本身，也就是服务标识符（具体引用后面会提到）。
+之所以叫作 `服务标识符`，根据它的函数名：`id` ，应该能猜测到它的一些用途，即作为索引使用的唯一标识符，后面我们会讲到。
 
-   - `index`是装饰器装饰的参数在参数列表中的位置。例如，在下面的示例中，`IService2`是使用`createDecorator`创建的服务标识符，它装饰了`Target2Dep`类构造函数中的第二个参数`@IService2 service2: IService2`，那么`index`的值就是`1`。
-
-     ```typescript
-     const IService2 = createDecorator<IService2>('service2');
-     
-     interface IService2 {
-         readonly _serviceBrand: undefined;
-         d: boolean;
-     }
-     
-     class Target2Dep {
-         constructor(@IService1 service1: IService1, @IService2 service2: IService2) {
-             assert.ok(service1 instanceof Service1);
-             assert.ok(service2 instanceof Service2);
-         }
-     }
-     ```
-
-     `target`表示装饰器所在的构造函数对象，在上述示例中即为`Target2Dep`。
-
-     `target[_util.DI_DEPENDENCIES]`即`Target2Dep["$di$dependencies"]`，存储了构造函数中所有装饰器的标识符（`id`）和它们在参数列表中的位置（`index`）。
-
-这里我们结合测试用例中的示例进行分析实际应用：
+装饰器层面，它用来装饰构造函数的参数，如示例所示：
 
 ```ts
-// 接口
-interface IService1 {
-    readonly _serviceBrand: undefined;
-    c: number;
-}
-// 服务标识符/装饰器，类型是：ServiceIdentifier<IService1>
-const IService1 = createDecorator<IService1>('service1');
-
-interface IDependentService {
-    readonly _serviceBrand: undefined;
-    name: string;
-}
 class DependentService implements IDependentService {
     declare readonly _serviceBrand: undefined;
     name = 'farboo';
-		// 使用服务标识符装饰参数
     constructor(@IService1 service: IService1) {
         assert.strictEqual(service.c, 1);
     }
 }
 ```
 
-当装饰器展开后，对象会新增两个属性`$di$dependencies`（依赖列表，包含依赖对象的服务标识符）和`$di$target`（对象自身），通过断点调试如下图：
+**服务标识符 装饰构造函数的参数后，发生了什么呢？**
+
+装饰器装饰参数，在编译时会被展开，即`id` 函数的调用，内部只有一行有效代码：`storeServiceDependency(id, target, index)`，见名知义，存储服务依赖。
+
+继续检索代码，执行到这里：`(target as any)[_util.DI_DEPENDENCIES].push({ id, index });`
+
+很容易理解，就是把`服务标识符`(or `id` 函数 or `装饰器`，上面示例中是 `IService1` 标识符) 和 `index`（服务标识符所装饰的参数，所在参数列表的下标）存储到 `target` 对象中（装饰器所在位置的对象，上面示例中是 `DependentService`）
+
+
+
+通过断点调试，我们再看下 `服务标识符` 被展开后，被装饰的对象发生了什么：
+
+如下图所示，可以看到， DependentService对象多了两个属性：`$di$dependencies` 和 `$di$target  `属性
+
+其中 `$di$dependencies` 存储了构造函数中的服务标识符列表和其所在参数位置
 
 ![didependencies](./assets/images/image-20230627152920108.png)
 
-现在我们已经了解了`createDecorator`的目的，即以装饰器的形式收集和存储对象的依赖关系。接下来，我们将继续分析`InstantiationService`中的代码，以了解如何创建对象实例并实现依赖注入。
 
-### 
 
 
 
