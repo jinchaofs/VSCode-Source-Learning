@@ -111,7 +111,9 @@ class ServiceLoop2 implements IService2 {
     d = true;
     constructor(@IService1 s: IService1) { }
 }
-
+/**
+ * 
+ */
 describe("Instantiation Service", () => {
     test("service collection, cannot overwrite", () => {
         const collection = new ServiceCollection();
@@ -139,6 +141,7 @@ describe("Instantiation Service", () => {
         collection.set(IService3, new Service3());
 
         service.createInstance(Service1Consumer);
+        console.log("")
     })
 
     test('@Param - fixed args', () => {

@@ -6,6 +6,10 @@ export interface ServiceIdentifier<T> {
     type: T;
 }
 // ------ util
+/**
+ * 1.将服务标识符存储在Map对象中
+ * 2.提供获取对象的服务依赖项函数
+ */
 export namespace _util {
     export const serviceIds = new Map<string, ServiceIdentifier<any>>();
 
@@ -31,7 +35,7 @@ export interface ServicesAccessor {
 
 export const IInstantiationService = createDecorator<IInstantiationService>('instantiationService');
 
-export type GetLeadingNonServiceArgs<TArgs extends any[]> = 
+export type GetLeadingNonServiceArgs<TArgs extends any[]> =
     TArgs extends [] ? []
     : TArgs extends [...infer TFirst, BrandedService] ? GetLeadingNonServiceArgs<TFirst>
     : TArgs;
