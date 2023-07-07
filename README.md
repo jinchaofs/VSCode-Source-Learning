@@ -136,6 +136,17 @@ export function createDecorator<T>(serviceId: string): ServiceIdentifier<T> {
 装饰器层面，它用来装饰构造函数的参数，如示例所示：
 
 ```ts
+const IService1 = createDecorator<IService1>('service1');
+
+interface IService1 {
+    readonly _serviceBrand: undefined;
+    c: number;
+}
+
+interface IDependentService {
+    readonly _serviceBrand: undefined;
+    name: string;
+}
 class DependentService implements IDependentService {
     declare readonly _serviceBrand: undefined;
     name = 'farboo';
