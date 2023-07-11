@@ -248,103 +248,103 @@ Service21Impl
 * @param args 
 * @returns 
 */
-invokeFunction<R, TS extends any[] = []>(fn: (accessor: ServicesAccessor, ...args: TS) => R, ...args: TS): R {
-  const _trace = Trace.traceInvocation(this._enableTracing, fn);
-  let _done = false; // 执行完成标记，回调函数一旦结束，accessor不允许再被访问
-  try {
-    const accessor: ServicesAccessor = {
-      get: <T>(id: ServiceIdentifier<T>) => {
+invokeFunction < R, TS extends any[] = [] > (fn: (accessor: ServicesAccessor, ...args: TS) => R, ...args: TS): R {
+    const _trace = Trace.traceInvocation(this._enableTracing, fn);
+    let _done = false; // 执行完成标记，回调函数一旦结束，accessor不允许再被访问
+    try {
+        const accessor: ServicesAccessor = {
+            get: <T>(id: ServiceIdentifier<T>) => {
 
-        if (_done) {
-          throw new Error('service accessor is only valid during the invocation of its target method');
-        }
+                if (_done) {
+                    throw new Error('service accessor is only valid during the invocation of its target method');
+                }
 
-        const result = this._getOrCreateServiceInstance(id, _trace);
-        if (!result) {
-          throw new Error(`[invokeFunction] unknown service '${id}'`);
-        }
-        return result;
-      }
-    };
-    return fn(accessor, ...args);
-  } finally {
-    _done = true;
-    _trace.stop();
-  }
+                const result = this._getOrCreateServiceInstance(id, _trace);
+                if (!result) {
+                    throw new Error(`[invokeFunction] unknown service '${id}'`);
+                }
+                return result;
+            }
+        };
+        return fn(accessor, ...args);
+    } finally {
+        _done = true;
+        _trace.stop();
+    }
 }
-/**
-* 创建服务实例，并缓存到服务实例集合中
-*/
-private _createAndCacheServiceInstance<T>(id: ServiceIdentifier<T>, desc: SyncDescriptor<T>, _trace: Trace): T {
+  /**
+  * 创建服务实例，并缓存到服务实例集合中
+  */
+  private _createAndCacheServiceInstance<T>(id: ServiceIdentifier<T>, desc: SyncDescriptor<T>, _trace: Trace): T {
 
-		type Triple = { id: ServiceIdentifier<any>; desc: SyncDescriptor<any>; _trace: Trace };
-		const graph = new Graph<Triple>(data => data.id.toString());
+    type Triple = { id: ServiceIdentifier<any>; desc: SyncDescriptor<any>; _trace: Trace };
+    const graph = new Graph<Triple>(data => data.id.toString());
 
-		let cycleCount = 0;
-		const stack = [{ id, desc, _trace }];
-		/**
-		 * 深度优先遍历，构建服务的SyncDescriptor依赖关系图
-		 * 由于SyncDescriptor只是类的描述符，不是实例，所以根根据关系图，在需要时，递归创建依赖关系图中所有的服务实例据
-		 */
-		while (stack.length) {
-			// 从当前服务节点开始
-			const item = stack.pop()!;
-			// 如果不存在，则插入图中
-			graph.lookupOrInsertNode(item);
+    let cycleCount = 0;
+    const stack = [{ id, desc, _trace }];
+    /**
+     * 深度优先遍历，构建服务的SyncDescriptor依赖关系图
+     * 由于SyncDescriptor只是类的描述符，不是实例，所以根根据关系图，在需要时，递归创建依赖关系图中所有的服务实例据
+     */
+    while (stack.length) {
+        // 从当前服务节点开始
+        const item = stack.pop()!;
+        // 如果不存在，则插入图中
+        graph.lookupOrInsertNode(item);
 
-			if (cycleCount++ > 1000) {
-        // 检测到循环依赖关系，抛出异常
-				throw new CyclicDependencyError(graph);
-			}
+        if (cycleCount++ > 1000) {
+            // 检测到循环依赖关系，抛出异常
+            throw new CyclicDependencyError(graph);
+        }
 
-			// 检查所有的依赖项是否存在，确定是否需要先创建他们 
-			for (const dependency of _util.getServiceDependencies(item.desc.ctor)) {
-				// 在服务集合（_services）中获取实例（service instance）或者描述对象(service SyncDescriptor)
-				const instanceOrDesc = this._getServiceInstanceOrDescriptor(dependency.id);
-				if (!instanceOrDesc) {
-					this._throwIfStrict(`[createInstance] ${id} depends on ${dependency.id} which is NOT registered.`, true);
-				}
+        // 检查所有的依赖项是否存在，确定是否需要先创建他们 
+        for (const dependency of _util.getServiceDependencies(item.desc.ctor)) {
+            // 在服务集合（_services）中获取实例（service instance）或者描述对象(service SyncDescriptor)
+            const instanceOrDesc = this._getServiceInstanceOrDescriptor(dependency.id);
+            if (!instanceOrDesc) {
+                this._throwIfStrict(`[createInstance] ${id} depends on ${dependency.id} which is NOT registered.`, true);
+            }
 
-				// 记录服务之间的依赖关系
-				this._globalGraph?.insertEdge(String(item.id), String(dependency.id));
-				// 如果对象是描述对象，则将节点插入的图中，并入栈，进行深度查找
-				if (instanceOrDesc instanceof SyncDescriptor) {
-					const d = { id: dependency.id, desc: instanceOrDesc, _trace: item._trace.branch(dependency.id, true) };
-					graph.insertEdge(item, d);
-					stack.push(d);
-				}
-			}
-		}
+            // 记录服务之间的依赖关系
+            this._globalGraph?.insertEdge(String(item.id), String(dependency.id));
+            // 如果对象是描述对象，则将节点插入的图中，并入栈，进行深度查找
+            if (instanceOrDesc instanceof SyncDescriptor) {
+                const d = { id: dependency.id, desc: instanceOrDesc, _trace: item._trace.branch(dependency.id, true) };
+                graph.insertEdge(item, d);
+                stack.push(d);
+            }
+        }
+    }
 
-		while (true) {
-			/**
-			 * 广度优先遍历
-			 * 递归遍历根节点，由外向内的对关系图中的描述符，创建实例对象
-			 */
-			const roots = graph.roots();
-			if (roots.length === 0) {
-				if (!graph.isEmpty()) {
-          // 没有根节点但图中仍然存在节点，说明存在循环依赖关系，抛出异常
-					throw new CyclicDependencyError(graph);
-				}
-				break;
-			}
+    while (true) {
+        /**
+         * 广度优先遍历
+         * 递归遍历根节点，由外向内的对关系图中的描述符，创建实例对象
+         */
+        const roots = graph.roots();
+        if (roots.length === 0) {
+            if (!graph.isEmpty()) {
+                // 没有根节点但图中仍然存在节点，说明存在循环依赖关系，抛出异常
+                throw new CyclicDependencyError(graph);
+            }
+            break;
+        }
 
-			for (const { data } of roots) {
-				// 检查服务的SyncDescriptor是否存在，并可能触发递归实例化
-				const instanceOrDesc = this._getServiceInstanceOrDescriptor(data.id);
-				if (instanceOrDesc instanceof SyncDescriptor) {
-					 // 创建实例并覆盖服务集合中的实例
-					const instance = this._createServiceInstanceWithOwner(data.id, data.desc.ctor, data.desc.staticArguments, data.desc.supportsDelayedInstantiation, data._trace);
-					this._setServiceInstance(data.id, instance);
-				}
-				// 创建完成后，移出根节点，进入下一次查找
-				graph.removeNode(data);
-			}
-		}
-		return <T>this._getServiceInstanceOrDescriptor(id);
-	}
-
+        for (const { data } of roots) {
+            // 检查服务的SyncDescriptor是否存在，并可能触发递归实例化
+            const instanceOrDesc = this._getServiceInstanceOrDescriptor(data.id);
+            if (instanceOrDesc instanceof SyncDescriptor) {
+                // 创建实例并覆盖服务集合中的实例
+                const instance = this._createServiceInstanceWithOwner(data.id, data.desc.ctor, data.desc.staticArguments, data.desc.supportsDelayedInstantiation, data._trace);
+                this._setServiceInstance(data.id, instance);
+            }
+            // 创建完成后，移出根节点，进入下一次查找
+            graph.removeNode(data);
+        }
+    }
+    return <T>this._getServiceInstanceOrDescriptor(id);
+}
+  
 private _createServiceInstance<T>(id: ServiceIdentifier<T>, ctor: any, args: any[] = [], supportsDelayedInstantiation: boolean, _trace: Trace): T {
     if (!supportsDelayedInstantiation) {
         // 如果不支持延迟实例化，则立即创建实例
