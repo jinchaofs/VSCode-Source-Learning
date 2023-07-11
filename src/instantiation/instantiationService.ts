@@ -69,10 +69,6 @@ export class InstantiationService implements IInstantiationService {
 		}
 	}
 
-	/**
-	 * 创建对象实例
-	 * @param descriptor 
-	 */
 	createInstance<T>(descriptor: SyncDescriptor0<T>): T;
 	createInstance<Ctor extends new (...args: any[]) => any, R extends InstanceType<Ctor>>(ctor: Ctor, ...args: GetLeadingNonServiceArgs<ConstructorParameters<Ctor>>): R;
 	createInstance(ctorOrDescriptor: any | SyncDescriptor<any>, ...rest: any[]): any {
